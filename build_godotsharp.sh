@@ -1,0 +1,1 @@
+./modules/mono/build_scripts/build_assemblies.py --godot-output-dir ./bin --precision single

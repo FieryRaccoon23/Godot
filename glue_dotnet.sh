@@ -1,0 +1,1 @@
+./bin/godot.macos.editor.arm64.mono --headless --generate-mono-glue modules/mono/glue

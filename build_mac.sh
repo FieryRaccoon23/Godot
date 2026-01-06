@@ -1,0 +1,1 @@
+scons platform=macos arch=arm64 target=editor module_mono_enabled=yes vulkan_sdk_path=/Users/araibsaleem/VulkanSDK/vulkun
