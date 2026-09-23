@@ -1,0 +1,15 @@
+Import('env')
+
+# Add MuJoCo include headers
+env.Append(CPPPATH=['#MuJoCo/include'])
+
+# List your module C++ source files here
+sources = [
+    "register_types.cpp"
+]
+
+# Add MuJoCo static/dynamic library linkage here based on your MuJoCo build setup
+# env.Append(LIBS=['mujoco'])
+
+module_env = env.Clone()
+module_env.add_source_files(env.modules_sources, sources)
