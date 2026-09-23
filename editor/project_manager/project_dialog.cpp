@@ -33,6 +33,8 @@
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
 #include "core/io/zip_io.h"
+#include "core/object/callable_mp.h"
+#include "core/os/os.h"
 #include "core/version.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
@@ -48,15 +50,17 @@
 #include "scene/gui/option_button.h"
 #include "scene/gui/separator.h"
 #include "scene/gui/texture_rect.h"
+#include "servers/display/display_server.h"
+#include "servers/rendering/rendering_server.h"
 
 void ProjectDialog::_set_message(const String &p_msg, MessageType p_type, InputType p_input_type) {
 	msg->set_text(p_msg);
+
 	if (p_type == MESSAGE_ERROR) {
-		invalid_flags.set_flag(ValidationFlags::INVALID_PATH_INPUT);
+		invalid_state_flags.set_flag(InvalidStateFlag::INVALID_STATE_FLAG_PATH_INPUT);
 	} else {
-		invalid_flags.clear_flag(ValidationFlags::INVALID_PATH_INPUT);
+		invalid_state_flags.clear_flag(InvalidStateFlag::INVALID_STATE_FLAG_PATH_INPUT);
 	}
-	get_ok_button()->set_disabled(!invalid_flags.is_empty());
 
 	Ref<Texture2D> new_icon;
 	switch (p_type) {
@@ -79,6 +83,12 @@ void ProjectDialog::_set_message(const String &p_msg, MessageType p_type, InputT
 	} else if (p_input_type == INSTALL_PATH) {
 		install_status_rect->set_texture(new_icon);
 	}
+
+	_update_ok_button();
+}
+
+void ProjectDialog::_update_ok_button() {
+	get_ok_button()->set_disabled(!invalid_state_flags.is_empty());
 }
 
 static bool is_zip_file(Ref<DirAccess> p_d, const String &p_path) {
@@ -481,7 +491,9 @@ void ProjectDialog::_reset_name() {
 }
 
 void ProjectDialog::_renderer_selected() {
-	ERR_FAIL_NULL(renderer_button_group->get_pressed_button());
+	if (!renderer_button_group->get_pressed_button()) {
+		return;
+	}
 
 	String renderer_type = renderer_button_group->get_pressed_button()->get_meta(SNAME("rendering_method"));
 
@@ -518,11 +530,12 @@ void ProjectDialog::_renderer_selected() {
 	if (rd_error) {
 		// Needs to be set here since theme colors aren't available at startup.
 		rd_not_supported->add_theme_color_override(SceneStringName(font_color), get_theme_color(SNAME("error_color"), EditorStringName(Editor)));
-		invalid_flags.set_flag(ValidationFlags::INVALID_RENDERER_SELECT);
+		invalid_state_flags.set_flag(InvalidStateFlag::INVALID_STATE_FLAG_RENDERER_SELECT);
 	} else {
-		invalid_flags.clear_flag(ValidationFlags::INVALID_RENDERER_SELECT);
+		invalid_state_flags.clear_flag(InvalidStateFlag::INVALID_STATE_FLAG_RENDERER_SELECT);
 	}
-	get_ok_button()->set_disabled(!invalid_flags.is_empty());
+
+	_update_ok_button();
 }
 
 void ProjectDialog::_nonempty_confirmation_ok_pressed() {
@@ -536,6 +549,7 @@ void ProjectDialog::ok_pressed() {
 	if (!is_folder_empty) {
 		if (!nonempty_confirmation) {
 			nonempty_confirmation = memnew(ConfirmationDialog);
+			nonempty_confirmation->set_flag(Window::FLAG_RESIZE_DISABLED, true);
 			nonempty_confirmation->set_title(TTRC("Warning: This folder is not empty"));
 			nonempty_confirmation->set_text(TTRC("You are about to create a Godot project in a non-empty folder.\nThe entire contents of this folder will be imported as project resources!\n\nAre you sure you wish to continue?"));
 			nonempty_confirmation->get_ok_button()->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_nonempty_confirmation_ok_pressed));
@@ -798,7 +812,7 @@ void ProjectDialog::ok_pressed() {
 			}
 		}
 #endif
-		emit_signal(SNAME("project_created"), path, edit_check_box->is_pressed());
+		emit_signal(SNAME("project_created"), path, mode == MODE_NEW || edit_check_box->is_pressed());
 	} else if (mode == MODE_DUPLICATE) {
 		emit_signal(SNAME("project_duplicated"), original_project_path, path, edit_check_box->is_visible() && edit_check_box->is_pressed());
 	} else if (mode == MODE_RENAME) {
@@ -840,6 +854,8 @@ void ProjectDialog::ask_for_path_and_show() {
 }
 
 void ProjectDialog::show_dialog(bool p_reset_name, bool p_is_confirmed) {
+	_update_ok_button();
+
 	if (mode == MODE_IMPORT && !p_is_confirmed) {
 		return;
 	}
@@ -891,7 +907,6 @@ void ProjectDialog::show_dialog(bool p_reset_name, bool p_is_confirmed) {
 		create_dir->show();
 		project_status_rect->show();
 		project_browse->show();
-		edit_check_box->show();
 
 		if (mode == MODE_IMPORT) {
 			set_title(TTRC("Import Existing Project"));
@@ -901,6 +916,7 @@ void ProjectDialog::show_dialog(bool p_reset_name, bool p_is_confirmed) {
 			install_path_container->hide();
 			renderer_container->hide();
 			default_files_container->hide();
+			edit_check_box->show();
 
 			// Project path dialog is also opened; no need to change focus.
 		} else if (mode == MODE_NEW) {
@@ -928,6 +944,7 @@ void ProjectDialog::show_dialog(bool p_reset_name, bool p_is_confirmed) {
 			install_path_container->hide();
 			renderer_container->show();
 			default_files_container->show();
+			edit_check_box->hide();
 
 			callable_mp((Control *)project_name, &Control::grab_focus).call_deferred(false);
 			callable_mp(project_name, &LineEdit::select_all).call_deferred();
@@ -941,6 +958,7 @@ void ProjectDialog::show_dialog(bool p_reset_name, bool p_is_confirmed) {
 			install_path_container->hide();
 			renderer_container->hide();
 			default_files_container->hide();
+			edit_check_box->show();
 
 			callable_mp((Control *)project_path, &Control::grab_focus).call_deferred(false);
 		} else if (mode == MODE_DUPLICATE) {
@@ -951,9 +969,7 @@ void ProjectDialog::show_dialog(bool p_reset_name, bool p_is_confirmed) {
 			install_path_container->hide();
 			renderer_container->hide();
 			default_files_container->hide();
-			if (!duplicate_can_edit) {
-				edit_check_box->hide();
-			}
+			edit_check_box->set_visible(duplicate_can_edit);
 
 			callable_mp((Control *)project_name, &Control::grab_focus).call_deferred(false);
 			callable_mp(project_name, &LineEdit::select_all).call_deferred();
@@ -1084,7 +1100,7 @@ ProjectDialog::ProjectDialog() {
 
 	msg = memnew(Label);
 	msg->set_focus_mode(Control::FOCUS_ACCESSIBILITY);
-	msg->set_accessibility_live(DisplayServer::LIVE_POLITE);
+	msg->set_accessibility_live(AccessibilityServerEnums::LIVE_POLITE);
 	msg->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER);
 	msg->set_custom_minimum_size(Size2(200, 0) * EDSCALE);
 	msg->set_autowrap_mode(TextServer::AUTOWRAP_WORD_SMART);
@@ -1113,8 +1129,9 @@ ProjectDialog::ProjectDialog() {
 	rs_button->set_button_group(renderer_button_group);
 	rs_button->set_text(TTRC("Forward+"));
 	rs_button->set_accessibility_name(TTRC("Renderer:"));
-#ifndef RD_ENABLED
+#if !defined(RD_ENABLED) || !defined(FORWARD_RD_ENABLED)
 	rs_button->set_disabled(true);
+	rs_button->set_tooltip_text(TTRC("Either RenderingDevice or the Forward+ rendering method was disabled at compile time."));
 #endif
 	rs_button->set_meta(SNAME("rendering_method"), "forward_plus");
 	rs_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_renderer_selected));
@@ -1126,8 +1143,9 @@ ProjectDialog::ProjectDialog() {
 	rs_button->set_button_group(renderer_button_group);
 	rs_button->set_text(TTRC("Mobile"));
 	rs_button->set_accessibility_name(TTRC("Renderer:"));
-#ifndef RD_ENABLED
+#if !defined(RD_ENABLED) || !defined(MOBILE_RD_ENABLED)
 	rs_button->set_disabled(true);
+	rs_button->set_tooltip_text(TTRC("Either RenderingDevice or the Mobile rendering method was disabled at compile time."));
 #endif
 	rs_button->set_meta(SNAME("rendering_method"), "mobile");
 	rs_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_renderer_selected));

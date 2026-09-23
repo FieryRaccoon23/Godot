@@ -32,8 +32,10 @@
 
 #include "core/core_bind.h"
 #include "core/io/compression.h"
+#include "core/io/resource_loader.h"
+#include "core/object/class_db.h"
 #include "core/object/script_language.h"
-#include "scene/debugger/scene_debugger.h"
+#include "scene/debugger/scene_debugger_object.h"
 
 #if defined(MODULE_GDSCRIPT_ENABLED) && defined(DEBUG_ENABLED)
 #include "modules/gdscript/gdscript.h"
@@ -43,10 +45,25 @@ SnapshotDataObject::SnapshotDataObject(SceneDebuggerObject &p_obj, GameStateSnap
 		snapshot(p_snapshot) {
 	remote_object_id = p_obj.id;
 	type_name = p_obj.class_name;
+	remote_name = vformat("<%s:%d> ", type_name, remote_object_id) + TTR("(Runtime Instance)");
+	remote_path = "";
+	bool is_node = ClassDB::is_parent_class(type_name, "Node");
+	bool is_resource = ClassDB::is_parent_class(type_name, "Resource");
 
 	for (const SceneDebuggerObject::SceneDebuggerProperty &prop : p_obj.properties) {
 		PropertyInfo pinfo = prop.first;
 		Variant pvalue = prop.second;
+
+		if (is_node && pinfo.name == "name") {
+			remote_name = pvalue;
+		} else if (is_node && pinfo.name == "Node/path") {
+			remote_path = pvalue;
+		} else if (is_resource && pinfo.name == "resource_path") {
+			remote_path = pvalue;
+			if (!remote_path.is_empty()) {
+				remote_name = remote_path.get_file();
+			}
+		}
 
 		if (pinfo.type == Variant::OBJECT && pvalue.is_string()) {
 			String path = pvalue;
@@ -58,14 +75,18 @@ SnapshotDataObject::SnapshotDataObject(SceneDebuggerObject &p_obj, GameStateSnap
 				// Built-in resource.
 				String base_path = path.get_slice("::", 0);
 				if (!resource_cache.cache.has(base_path)) {
-					resource_cache.cache[base_path] = ResourceLoader::load(base_path);
+					if (ResourceLoader::exists(path)) {
+						resource_cache.cache[base_path] = ResourceLoader::load(base_path);
+					}
 					resource_cache.misses++;
 				} else {
 					resource_cache.hits++;
 				}
 			}
 			if (!resource_cache.cache.has(path)) {
-				resource_cache.cache[path] = ResourceLoader::load(path);
+				if (ResourceLoader::exists(path)) {
+					resource_cache.cache[path] = ResourceLoader::load(path);
+				}
 				resource_cache.misses++;
 			} else {
 				resource_cache.hits++;
@@ -155,6 +176,9 @@ String SnapshotDataObject::_get_script_name(Ref<Script> p_script) {
 }
 
 String SnapshotDataObject::get_name() {
+	if (!remote_name.is_empty()) {
+		return remote_name;
+	}
 	String found_type_name = type_name;
 
 	// Ideally, we will name it after the script attached to it.
@@ -270,12 +294,12 @@ void GameStateSnapshot::_get_rc_cycles(
 		}
 
 		SnapshotDataObject *next = objects[next_child.value];
-		if (next != nullptr && next->is_class(RefCounted::get_class_static()) && !next->is_class(WeakRef::get_class_static()) && !p_traversed_objs.has(next)) {
-			HashSet<SnapshotDataObject *> traversed_copy = p_traversed_objs;
+		if (next != nullptr && next->is_class(RefCounted::get_class_static()) && !next->is_class("WeakRef") && !p_traversed_objs.has(next)) {
+			HashSet<SnapshotDataObject *> traversed_copy(p_traversed_objs);
 			if (p_obj != p_source_obj) {
 				traversed_copy.insert(p_obj);
 			}
-			_get_rc_cycles(next, p_source_obj, traversed_copy, r_ret_val, child_path);
+			_get_rc_cycles(next, p_source_obj, std::move(traversed_copy), r_ret_val, child_path);
 		}
 	}
 }
@@ -303,13 +327,12 @@ void GameStateSnapshot::recompute_references() {
 	}
 
 	for (const KeyValue<ObjectID, SnapshotDataObject *> &obj : objects) {
-		if (!obj.value->is_class(RefCounted::get_class_static()) || obj.value->is_class(WeakRef::get_class_static())) {
+		if (!obj.value->is_class(RefCounted::get_class_static()) || obj.value->is_class("WeakRef")) {
 			continue;
 		}
-		HashSet<SnapshotDataObject *> traversed_objs;
 		LocalVector<String> cycles;
 
-		_get_rc_cycles(obj.value, obj.value, traversed_objs, cycles, "");
+		_get_rc_cycles(obj.value, obj.value, HashSet<SnapshotDataObject *>(), cycles, "");
 		Array cycles_array;
 		for (const String &cycle : cycles) {
 			cycles_array.push_back(cycle);

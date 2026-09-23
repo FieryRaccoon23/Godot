@@ -63,7 +63,7 @@ inline constexpr const char *_doc_data_hash = "{hash(buffer)}";
 inline constexpr int _doc_data_compressed_size = {len(buffer)};
 inline constexpr int _doc_data_uncompressed_size = {decomp_size};
 inline constexpr const unsigned char _doc_data_compressed[] = {{
-	{methods.format_buffer(buffer, 1)}
+{methods.format_buffer(buffer, 1)}
 }};
 """)
 
@@ -85,14 +85,13 @@ def make_translations(target, source, env):
             # msgfmt erases non-translated messages, so avoid using it if exporting the POT.
             if msgfmt and name != category:
                 mo_path = os.path.join(tempfile.gettempdir(), uuid.uuid4().hex + ".mo")
-                cmd = f"{msgfmt} {path} --no-hash -o {mo_path}"
+                cmd = f'{msgfmt} "{path}" --no-hash -o "{mo_path}"'
                 try:
                     subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE).communicate()
                     buffer = methods.get_buffer(mo_path)
                 except OSError as e:
                     methods.print_warning(
-                        "msgfmt execution failed, using .po file instead of .mo: path=%r; [%s] %s"
-                        % (path, e.__class__.__name__, e)
+                        f"msgfmt execution failed, using .po file instead of .mo: path={path!r}; [{e.__class__.__name__}] {e}"
                     )
                     buffer = methods.get_buffer(path)
                 finally:
@@ -102,7 +101,7 @@ def make_translations(target, source, env):
                     except OSError as e:
                         # Do not fail the entire build if it cannot delete a temporary file.
                         methods.print_warning(
-                            "Could not delete temporary .mo file: path=%r; [%s] %s" % (mo_path, e.__class__.__name__, e)
+                            f"Could not delete temporary .mo file: path={mo_path!r}; [{e.__class__.__name__}] {e}"
                         )
             else:
                 buffer = methods.get_buffer(path)
@@ -114,7 +113,7 @@ def make_translations(target, source, env):
 
             file.write(f"""\
 inline constexpr const unsigned char _{category}_translation_{name}_compressed[] = {{
-	{methods.format_buffer(buffer, 1)}
+{methods.format_buffer(buffer, 1)}
 }};
 
 """)
