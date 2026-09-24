@@ -1,3 +1,0 @@
-[submodule "MuJoCo"]
-	path = MuJoCo
-	url = https://github.com/google-deepmind/mujoco.git
