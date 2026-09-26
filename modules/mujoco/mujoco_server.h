@@ -25,7 +25,18 @@ public:
     float get_qpos(int p_index) const;
     void set_qpos(int p_index, float p_value);
 
+    int get_nv() const;   // number of velocity DOFs
+    float get_qvel(int p_index) const;
+    void set_qvel(int p_index, float p_value);
+    
+    float get_qacc(int p_index) const;  // read-only: computed by the solver each step
+
     float get_time() const;
+
+     // Body lookup + transform access
+    int get_body_id(const String &p_body_name) const;
+    Vector3 get_body_pos(int p_body_id) const;
+    Quaternion get_body_quat(int p_body_id) const;
 
     MuJoCoServer();
     ~MuJoCoServer();
