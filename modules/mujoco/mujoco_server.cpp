@@ -18,6 +18,20 @@ void MuJoCoServer::_bind_methods() {
 
     ClassDB::bind_method(D_METHOD("get_time"), &MuJoCoServer::get_time);
 
+    ClassDB::bind_method(D_METHOD("get_ngeom"), &MuJoCoServer::get_ngeom);
+    ClassDB::bind_method(D_METHOD("get_geom_id", "geom_name"), &MuJoCoServer::get_geom_id);
+    ClassDB::bind_method(D_METHOD("get_geom_type", "geom_id"), &MuJoCoServer::get_geom_type);
+    ClassDB::bind_method(D_METHOD("get_geom_body_id", "geom_id"), &MuJoCoServer::get_geom_body_id);
+    ClassDB::bind_method(D_METHOD("get_geom_size", "geom_id"), &MuJoCoServer::get_geom_size);
+    ClassDB::bind_method(D_METHOD("get_geom_friction", "geom_id"), &MuJoCoServer::get_geom_friction);
+
+    ClassDB::bind_method(D_METHOD("get_contact_count"), &MuJoCoServer::get_contact_count);
+    ClassDB::bind_method(D_METHOD("get_contact_pos", "contact_index"), &MuJoCoServer::get_contact_pos);
+    ClassDB::bind_method(D_METHOD("get_contact_normal", "contact_index"), &MuJoCoServer::get_contact_normal);
+    ClassDB::bind_method(D_METHOD("get_contact_depth", "contact_index"), &MuJoCoServer::get_contact_depth);
+    ClassDB::bind_method(D_METHOD("get_contact_geom1", "contact_index"), &MuJoCoServer::get_contact_geom1);
+    ClassDB::bind_method(D_METHOD("get_contact_geom2", "contact_index"), &MuJoCoServer::get_contact_geom2);
+
     ClassDB::bind_method(D_METHOD("get_body_id", "body_name"), &MuJoCoServer::get_body_id);
     ClassDB::bind_method(D_METHOD("get_body_pos", "body_id"), &MuJoCoServer::get_body_pos);
     ClassDB::bind_method(D_METHOD("get_body_quat", "body_id"), &MuJoCoServer::get_body_quat);

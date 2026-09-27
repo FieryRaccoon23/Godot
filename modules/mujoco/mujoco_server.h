@@ -33,6 +33,22 @@ public:
 
     float get_time() const;
 
+    // Geom shape + friction (static)
+    int get_ngeom() const;
+    int get_geom_id(const String &p_geom_name) const;
+    int get_geom_type(int p_geom_id) const;
+    int get_geom_body_id(int p_geom_id) const;
+    Vector3 get_geom_size(int p_geom_id) const;
+    Vector3 get_geom_friction(int p_geom_id) const;
+
+    // Contacts (dynamic, per-step)
+    int get_contact_count() const;
+    Vector3 get_contact_pos(int p_contact_index) const;
+    Vector3 get_contact_normal(int p_contact_index) const;
+    float get_contact_depth(int p_contact_index) const;
+    int get_contact_geom1(int p_contact_index) const;
+    int get_contact_geom2(int p_contact_index) const;
+
      // Body lookup + transform access
     int get_body_id(const String &p_body_name) const;
     Vector3 get_body_pos(int p_body_id) const;

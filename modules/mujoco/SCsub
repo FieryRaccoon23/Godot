@@ -13,6 +13,7 @@ sources = [
     "register_types.cpp",
     "mujoco_server.cpp",
     "mujoco_core.cpp",
+    "mujoco_collision.cpp",
     "mujoco_flex.cpp",
 ]
 
