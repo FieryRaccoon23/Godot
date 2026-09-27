@@ -12,6 +12,8 @@ env.Append(LIBS=[File('#MuJoCo/lib/mujoco.lib')])
 sources = [
     "register_types.cpp",
     "mujoco_server.cpp",
+    "mujoco_core.cpp",
+    "mujoco_flex.cpp",
 ]
 
 module_env = env.Clone()

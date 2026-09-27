@@ -28,7 +28,7 @@ public:
     int get_nv() const;   // number of velocity DOFs
     float get_qvel(int p_index) const;
     void set_qvel(int p_index, float p_value);
-    
+
     float get_qacc(int p_index) const;  // read-only: computed by the solver each step
 
     float get_time() const;
@@ -37,6 +37,16 @@ public:
     int get_body_id(const String &p_body_name) const;
     Vector3 get_body_pos(int p_body_id) const;
     Quaternion get_body_quat(int p_body_id) const;
+
+    // Flex/cable (rope) access
+    int get_flex_id(const String &p_flex_name) const;
+    int get_flex_vertex_count(int p_flex_id) const;
+    Vector3 get_flex_vertex_pos(int p_flex_id, int p_vertex_index) const;
+    float get_flex_radius(int p_flex_id) const;
+    Vector2i get_flex_edge(int p_flex_id, int p_edge_index) const;
+    int get_flex_edge_count(int p_flex_id) const;
+    float get_flex_edge_length(int p_flex_id, int p_edge_index) const;
+    float get_flex_edge_rest_length(int p_flex_id, int p_edge_index) const;
 
     MuJoCoServer();
     ~MuJoCoServer();
