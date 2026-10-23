@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="NeedleEngine" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<brief_description>
+		On-device tool calling (Needle 3) and speech-to-text (Whistle) from Cactus Compute.
+	</brief_description>
+	<description>
+		Singleton wrapping Needle's native engine. The engine keeps one process-global text model, one speech model and one conversation, and is not thread-safe; every method here takes an internal lock. Load needle3.cact and optionally whistle.cact with [method load_model], declare tools with [method configure], then call [method complete] or [method complete_audio]. Audio is 16 kHz mono float PCM in [-1, 1]. Calls block, so run them off the main thread.
+	</description>
+	<tutorials>
+	</tutorials>
+</class>

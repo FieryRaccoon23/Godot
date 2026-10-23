@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+import os
+
+Import("env")
+Import("env_modules")
+
+env_needle = env_modules.Clone()
+
+# Map Godot (platform, arch) to the Needle platform folder name.
+FOLDERS = {
+    ("linuxbsd", "x86_64"): "linux-x86_64",
+    ("linuxbsd", "arm64"): "linux-arm64",
+    ("linuxbsd", "arm32"): "linux-armv7",
+    ("linuxbsd", "rv64"): "linux-riscv64",
+    ("macos", "arm64"): "macos-arm64",
+    ("windows", "x86_64"): "windows-x86_64",
+    ("windows", "arm64"): "windows-arm64",
+    ("android", "arm64"): "android-arm64",
+    ("android", "arm32"): "android-armv7",
+    ("ios", "arm64"): "ios-arm64",
+}
+
+key = (env["platform"], env["arch"])
+folder = FOLDERS.get(key)
+if env["platform"] == "ios" and env.get("ios_simulator", False):
+    folder = "ios-sim-arm64"
+
+if folder is None:
+    print("needle: no prebuilt Needle engine for platform=%s arch=%s" % key)
+    print("needle: build with module_needle_enabled=no for this target.")
+    Exit(255)
+
+lib_dir = Dir("thirdparty/" + folder).abspath
+
+if not os.path.isfile(os.path.join(lib_dir, "needle.h")):
+    print("needle: missing %s" % os.path.join(lib_dir, "needle.h"))
+    Exit(255)
+
+env_needle.Prepend(CPPPATH=[lib_dir])
+
+# MSVC's linker cannot read the MinGW/Clang-built libneedle.a (LNK1143), so on Windows
+# with MSVC we link against needle.dll through an import library made by make_needle_dll.ps1.
+use_dll = env["platform"] == "windows" and not env.get("use_mingw", False)
+
+if use_dll:
+    import_lib = os.path.join(lib_dir, "needle.lib")
+    dll = os.path.join(lib_dir, "needle.dll")
+    if not (os.path.isfile(import_lib) and os.path.isfile(dll)):
+        print("needle: MSVC build needs needle.dll + needle.lib in %s" % lib_dir)
+        print("needle: run .\\make_needle_dll.ps1 once to create them from libneedle.a.")
+        Exit(255)
+    env.Append(LIBS=[File(import_lib)])
+    env_needle.Append(CPPDEFINES=["NEEDLE_WINDOWS_DLL"])
+else:
+    lib_file = os.path.join(lib_dir, "libneedle.a")
+    if not os.path.isfile(lib_file):
+        print("needle: missing %s" % lib_file)
+        Exit(255)
+    # Link the static engine into the final Godot binary (editor or export template).
+    env.Append(LIBS=[File(lib_file)])
+    if env["platform"] == "linuxbsd":
+        env.Append(LIBS=["pthread"])
+
+env_needle.add_source_files(env.modules_sources, "*.cpp")
