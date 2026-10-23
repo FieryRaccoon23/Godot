@@ -90,7 +90,7 @@ Quaternion MuJoCoServer::get_body_quat(int p_body_id) const {
 
     // Same axis swap as position (Y<->Z), and Godot's Quaternion constructor
     // takes (x, y, z, w) order, not MuJoCo's (w, x, y, z)
-    return Quaternion((float)x, (float)z, (float)y, (float)w);
+    return Quaternion((float)-x, (float)-z, (float)-y, (float)w);
 }
 
 int MuJoCoServer::get_nv() const {
